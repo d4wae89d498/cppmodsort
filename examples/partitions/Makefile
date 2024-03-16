@@ -15,7 +15,7 @@ all: main
 %.pcm: %.cppm
 	$(CC) --precompile $< -o $@
 
-%.o: %.cppm %.pcm
+%.o: %.pcm
 	$(CC) -c $< -o $@
 
 %.o: %.cpp

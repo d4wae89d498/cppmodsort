@@ -79,10 +79,10 @@ void processFile(const char* filename, Graph& graph, CXIndex index)
 			continue;
 		auto spelling = clang_getTokenSpelling(tu, tokens[i]);
 		const char* spellingCStr = clang_getCString(spelling);
-		if (strcmp(spellingCStr, "export") == 0 && (i + 2 < numTokens))
+		if (!strcmp(spellingCStr, "export") && (i + 2 < numTokens))
 		{
 			auto nextSpelling = clang_getTokenSpelling(tu, tokens[i + 1]);
-			if (strcmp(clang_getCString(nextSpelling), "module") == 0) {
+			if (!strcmp(clang_getCString(nextSpelling), "module")) {
 				auto moduleName = clang_getTokenSpelling(tu, tokens[i + 2]);
 				currentModule = clang_getCString(moduleName);
 				graph.addModule(currentModule, filename);
@@ -92,7 +92,7 @@ void processFile(const char* filename, Graph& graph, CXIndex index)
 			}
 			clang_disposeString(nextSpelling);
 		}
-		else if (strcmp(spellingCStr, "import") == 0 && (i + 1 < numTokens) && !currentModule.empty())
+		else if (!strcmp(spellingCStr, "import") && (i + 1 < numTokens) && !currentModule.empty())
 		{
 			auto importName = clang_getTokenSpelling(tu, tokens[i + 1]);
 			graph.addDependency(currentModule, clang_getCString(importName));
