@@ -1,0 +1,6 @@
+cppmodsorter
+*.o
+*.pcm
+*.swp
+*.DS_Store
+main
