@@ -1,3 +1,3 @@
 export module a;
 
-import a:b;
+import :b;

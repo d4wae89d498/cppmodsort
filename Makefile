@@ -1,6 +1,6 @@
 NAME=cppmodsort
 
-all: $(NAME) test
+all: $(NAME)
 
 $(NAME): cppmodsort.cpp
 	clang++ $<  -o $@ -I /usr/local/opt/llvm/include /usr/local/opt/llvm/lib/libclang.dylib
