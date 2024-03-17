@@ -192,13 +192,12 @@ int main(int ac, char **av)
 			exit_code = 1;
 			break;
 		}
-//	cerr << "____" << endl;
 	if (!exit_code)
 	{
 		auto orderedFilenames = dependencyGraph.topologicalSort();
 		for (auto it = orderedFilenames.rbegin(); it != orderedFilenames.rend(); ++it)
 			cout << *it << endl;
-		clang_disposeIndex(index);
 	}
+	clang_disposeIndex(index);
 	return exit_code;
 }
