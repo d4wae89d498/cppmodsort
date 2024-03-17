@@ -8,6 +8,10 @@
 #include <cstring>
 #include <string>
 
+#ifndef DBG
+# define DBG 0
+#endif
+
 using namespace std;
 
 struct Graph
@@ -73,51 +77,94 @@ int processFile(const char* filename, Graph& graph, CXIndex index)
 	for (unsigned i = 0; i < numTokens; ++i)
 	{
 		CXTokenKind tokenKind = clang_getTokenKind(tokens[i]);
-		if (tokenKind != CXToken_Keyword && tokenKind != CXToken_Identifier)
+		if (tokenKind != CXToken_Keyword && tokenKind != CXToken_Identifier && tokenKind != CXToken_Punctuation)
 			continue;
 		auto spelling = clang_getTokenSpelling(tu, tokens[i]);
 		auto spellingCStr = clang_getCString(spelling);
-		if (string(spellingCStr) == "export" && (i + 2 < numTokens))
+		string currentToken = string(spellingCStr);
+
+		if (currentToken == "export" && (i + 2 < numTokens))
 		{
 			auto nextSpelling = clang_getTokenSpelling(tu, tokens[i + 1]);
 			if (string(clang_getCString(nextSpelling)) == "module")
 			{
-				auto moduleName = clang_getTokenSpelling(tu, tokens[i + 2]);
-				currentModule = string(clang_getCString(moduleName));
-				if (i + 4 < numTokens)
+				currentModule.clear();
+				i += 2;
+				for (; i < numTokens; ++i)
 				{
-					auto moduleNextTk = clang_getTokenSpelling(tu, tokens[i + 3]);
-					if (string(clang_getCString(moduleNextTk)) == ":")
+					auto partSpelling = clang_getTokenSpelling(tu, tokens[i]);
+					auto partCStr = clang_getCString(partSpelling);
+					if (clang_getTokenKind(tokens[i]) == CXToken_Punctuation && string(partCStr) == ".")
 					{
-						auto modulePartName = clang_getTokenSpelling(tu, tokens[i + 4]);
-						currentModule = currentModule + ":" + clang_getCString( modulePartName );
-						clang_disposeString(modulePartName);
+						currentModule += ".";
 					}
-					clang_disposeString(moduleNextTk);
+					else if (clang_getTokenKind(tokens[i]) == CXToken_Punctuation && string(partCStr) == ":")
+					{
+						currentModule += ":";
+					}
+					else if (clang_getTokenKind(tokens[i]) == CXToken_Identifier)
+					{
+						if (!currentModule.empty())
+							currentModule += string(partCStr);
+						else
+							currentModule = string(partCStr);
+					}
+					else
+					{
+						break;
+					}
+					clang_disposeString(partSpelling);
 				}
+#if DBG
+				cerr << filename << " has module " << currentModule << endl;
+#endif
 				graph.addModule(currentModule, filename);
 				wasModuleUnit = true;
-				clang_disposeString(moduleName);
-				i += 2;
+				i -= 1;
 			}
 			clang_disposeString(nextSpelling);
 		}
-		else if (string(spellingCStr) == "import" && (i + 1 < numTokens) && !currentModule.empty())
+		else if (currentToken == "import" && (i + 1 < numTokens) && !currentModule.empty())
 		{
-			auto importFirstToken = clang_getTokenSpelling(tu, tokens[i + 1]);
-			auto importName = string(clang_getCString(importFirstToken));
-
-			if (importName == ":")
-			{
-				auto importSecondToken = clang_getTokenSpelling(tu, tokens[i + 2]);
-				importName = currentModule + ":" + clang_getCString(importSecondToken);
-				clang_disposeString(importSecondToken);
-			}
-			graph.addDependency(currentModule, importName);
-			clang_disposeString(importFirstToken);
+			string importName;
 			i += 1;
+			for (; i < numTokens; ++i)
+			{
+				auto partSpelling = clang_getTokenSpelling(tu, tokens[i]);
+				auto partCStr = clang_getCString(partSpelling);
+				if (clang_getTokenKind(tokens[i]) == CXToken_Punctuation && string(partCStr) == ".")
+				{
+					importName += ".";
+				}
+				else if (clang_getTokenKind(tokens[i]) == CXToken_Punctuation && string(partCStr) == ":")
+				{
+					importName += ":";
+				}
+				else if (clang_getTokenKind(tokens[i]) == CXToken_Identifier)
+				{
+					if (!importName.empty())
+						importName += string(partCStr);
+					else
+						importName = string(partCStr);
+				}
+				else
+				{
+					break;
+				}
+				clang_disposeString(partSpelling);
+			}
+			if (importName.c_str()[0] == ':')
+			{
+				importName = string(currentModule.find(":") != string::npos ? currentModule.substr(0, currentModule.find(":")) : currentModule) + importName;
+			}
+#if DBG
+			cerr << "import from " << currentModule << " to " << importName << endl;
+#endif
+			graph.addDependency(currentModule, importName);
+			i -= 1;
 		}
 		clang_disposeString(spelling);
+
 	}
 	if (!wasModuleUnit)
 	{
@@ -145,6 +192,7 @@ int main(int ac, char **av)
 			exit_code = 1;
 			break;
 		}
+//	cerr << "____" << endl;
 	if (!exit_code)
 	{
 		auto orderedFilenames = dependencyGraph.topologicalSort();
